@@ -62,7 +62,13 @@ body {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
 }
-.app-logo { flex-shrink: 0; }
+.app-logo {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.app-logo-ssi { filter: brightness(0) invert(1); }
 .app-header-text { flex: 1; }
 .app-header h1 { font-size: 1.5rem; margin: 0 0 0.25rem; font-weight: 700; }
 .app-subtitle { font-size: 0.9rem; color: var(--muted); margin: 0; }
