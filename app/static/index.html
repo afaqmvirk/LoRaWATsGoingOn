@@ -38,6 +38,10 @@
     </nav>
   </aside>
   <main class="app-main" id="app-main">
+  <div id="view-backdrop" class="view-backdrop" aria-hidden="true" style="display: none;">
+    <div class="view-backdrop__bg" id="view-backdrop-bg"></div>
+    <div class="view-backdrop__overlay"></div>
+  </div>
   <div class="api-unavailable" id="api-unavailable" style="display: none;" aria-live="polite" aria-atomic="true"></div>
   <details class="card" style="margin-bottom: 0.5rem;"><summary class="meta" style="cursor: pointer;">Learn more (RSSI, SNR, gateway)</summary>
     <p class="meta" style="margin: 0.5rem 0 0;">RSSI = received signal strength (dBm); closer to 0 is stronger. SNR = signal-to-noise ratio; higher is better. Gateways are radio sites that receive device uplinks; location here is where the gateway received the packet, not the device position. <a href="https://lora-alliance.org/" target="_blank" rel="noopener" style="color: var(--accent);">LoRa Alliance</a></p>
@@ -101,18 +105,32 @@
       <div id="passport-content"></div>
     </div>
     <div id="device-door-summary" class="door-summary" style="display: none; margin-bottom: 0.5rem;"></div>
-    <div id="door-time-wrap" class="door-charts-wrap" style="display: none;">
-      <h4 class="door-chart-heading">Time open vs closed</h4>
-      <div class="door-time-chart-wrap">
-        <canvas id="door-time-chart"></canvas>
+    <div id="door-charts-row" class="door-and-chart-row" style="display: none;">
+      <div id="door-time-wrap" class="door-charts-wrap">
+        <h4 class="door-chart-heading">Time open vs closed</h4>
+        <div class="door-time-chart-wrap">
+          <canvas id="door-time-chart"></canvas>
+        </div>
+      </div>
+      <div id="door-gantt-wrap" class="door-charts-wrap door-gantt-col">
+        <h4 class="door-chart-heading">Door state over time</h4>
+        <div id="door-gantt" class="door-gantt" aria-label="Open (red) and closed (gray) segments over time"></div>
       </div>
     </div>
-    <div id="door-gantt-wrap" class="door-charts-wrap" style="display: none;">
-      <h4 class="door-chart-heading">Door state over time</h4>
-      <div id="door-gantt" class="door-gantt" aria-label="Open (red) and closed (gray) segments over time"></div>
-    </div>
-    <div class="chart-wrap">
-      <canvas id="chart"></canvas>
+    <div class="level-and-chart-row">
+      <div id="level-gauge-wrap" class="level-gauge-wrap" style="display: none;" aria-label="Current water level">
+        <div class="level-gauge">
+          <div class="level-gauge-fill" id="level-gauge-fill"></div>
+        </div>
+        <div class="level-gauge-meta">
+          <span class="level-gauge-label meta">Current level</span>
+          <span class="level-gauge-value" id="level-gauge-value">—</span>
+          <span class="level-gauge-unit meta">cm</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
     </div>
     <div id="device-anomalies" style="margin-top: 0.5rem;"></div>
     <div class="meta" id="meta"></div>

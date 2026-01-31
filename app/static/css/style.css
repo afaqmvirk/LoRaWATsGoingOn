@@ -134,7 +134,34 @@ h1 { font-size: 1.25rem; margin: 0 0 1rem; }
 .app-sidebar nav a[data-view="sw3l"] .nav-icon,
 .app-sidebar nav a[data-view="health"] .nav-icon,
 .app-sidebar nav a[data-view="correlation"] .nav-icon { color: var(--muted); }
-.app-main { flex: 1; padding: 1rem; overflow-x: hidden; }
+.app-main { flex: 1; padding: 1rem; overflow-x: hidden; position: relative; }
+.app-main > *:not(.view-backdrop) { position: relative; z-index: 1; }
+
+/* Full-page site background on dashboard/site views (NOT on the card) */
+.view-backdrop {
+  position: fixed;
+  left: 220px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.view-backdrop__bg {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(14px);
+  transform: scale(1.05);
+}
+.view-backdrop__overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+}
 
 .card-title {
   font-size: 0.9rem;
@@ -223,6 +250,56 @@ select:focus-visible {
 }
 
 .chart-wrap { position: relative; height: 280px; }
+
+/* Level view: gauge and chart side-by-side */
+.level-and-chart-row {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.level-and-chart-row .chart-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Level view: visual water level gauge */
+.level-gauge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.level-gauge {
+  width: 40px;
+  height: 140px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+.level-gauge-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, #0d419d, #58a6ff);
+  border-radius: 0 0 8px 8px;
+  min-height: 4px;
+  transition: height 0.35s ease;
+}
+.level-gauge-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.level-gauge-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.level-gauge-unit { font-size: 0.8rem; }
 
 .meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem; }
 
@@ -530,6 +607,24 @@ select:focus-visible {
 }
 .door-summary-inner strong { color: var(--text); }
 
+.door-and-chart-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin: 1rem 0;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.door-and-chart-row .door-charts-wrap {
+  margin: 0;
+  padding: 0;
+  border-top: none;
+}
+.door-and-chart-row .door-gantt-col {
+  flex: 1;
+  min-width: 200px;
+}
 .door-charts-wrap {
   margin: 1rem 0;
   padding: 0.75rem 0;

@@ -131,8 +131,15 @@
     if (!dom || !state) return Promise.resolve();
     dom.errEl.textContent = '';
     dom.metaEl.textContent = 'Loading…';
+    var levelGaugeWrap = document.getElementById('level-gauge-wrap');
+    var levelGaugeFill = document.getElementById('level-gauge-fill');
+    var levelGaugeValue = document.getElementById('level-gauge-value');
+    if (state.currentView !== 'level') {
+      if (levelGaugeWrap) levelGaugeWrap.style.display = 'none';
+      levelGaugeWrap = null;
+    }
     var devEui = dom.deviceSelect.value;
-    if (!devEui) { dom.metaEl.textContent = ''; return Promise.resolve(); }
+    if (!devEui) { dom.metaEl.textContent = ''; if (levelGaugeWrap) levelGaugeWrap.style.display = 'none'; return Promise.resolve(); }
     var range = getTimeRange(dom.rangeSelect.value);
     return api.getTimeseries(devEui, range.fromTime, range.toTime, dom.fportSelect.value || null).then(function (data) {
       if (!Array.isArray(data)) {
@@ -141,7 +148,8 @@
         return;
       }
       var labels = data.map(function (d) { return d.time; });
-      return api.getAnomaliesDevice(devEui, range.fromTime, range.toTime).then(function (anom) {
+      var anomalyPromise = state.currentView === 'doors' ? Promise.resolve({ anomalies: [] }) : api.getAnomaliesDevice(devEui, range.fromTime, range.toTime);
+      return anomalyPromise.then(function (anom) {
         var anomalyList = Array.isArray(anom.anomalies) ? anom.anomalies : [];
         var annotationOpts = { annotation: { annotations: charts.buildAnomalyAnnotations(labels, anomalyList) } };
         if (state.chart) state.chart.destroy();
@@ -156,7 +164,26 @@
           sw3l: data.length + ' points. SW3L battery (dataset has config/BAT only).'
         };
         dom.metaEl.textContent = (metaLines[state.currentView] || '') + charts.radioMeta(data);
+        if (state.currentView === 'level') {
+          var gaugeWrap = document.getElementById('level-gauge-wrap');
+          var gaugeFill = document.getElementById('level-gauge-fill');
+          var gaugeValue = document.getElementById('level-gauge-value');
+          if (gaugeWrap) gaugeWrap.style.display = 'flex';
+          var distValues = data.map(function (d) { return d.object && typeof d.object.distance === 'number' ? d.object.distance : null; }).filter(function (v) { return v != null; });
+          var latest = distValues.length ? distValues[distValues.length - 1] : null;
+          var maxDist = 500;
+          if (distValues.length) {
+            var dataMax = Math.max.apply(null, distValues);
+            if (dataMax > maxDist) maxDist = Math.ceil(dataMax * 1.1);
+          }
+          if (gaugeValue) gaugeValue.textContent = latest != null ? String(Math.round(latest)) : '—';
+          if (gaugeFill) {
+            var pct = (latest != null && maxDist > 0) ? Math.max(0, (1 - latest / maxDist) * 100) : 0;
+            gaugeFill.style.height = pct + '%';
+          }
+        }
         var doorSummaryEl = document.getElementById('device-door-summary');
+        var doorChartsRow = document.getElementById('door-charts-row');
         var doorTimeWrap = document.getElementById('door-time-wrap');
         var doorGanttWrap = document.getElementById('door-gantt-wrap');
         var doorGanttEl = document.getElementById('door-gantt');
@@ -171,9 +198,8 @@
               if (doorStats.totalOpenMin != null) parts.push('Total open: <strong>' + (doorStats.totalOpenMin < 1 ? (Math.round(doorStats.totalOpenMin * 60) + ' s') : (Math.round(doorStats.totalOpenMin * 10) / 10 + ' min')) + '</strong>');
               doorSummaryEl.innerHTML = '<div class="door-summary-inner">' + parts.join(' · ') + '</div>';
             }
-            if (doorTimeWrap && doorGanttWrap && doorGanttEl) {
-              doorTimeWrap.style.display = 'block';
-              doorGanttWrap.style.display = 'block';
+            if (doorChartsRow && doorTimeWrap && doorGanttWrap && doorGanttEl) {
+              doorChartsRow.style.display = 'flex';
               var openMin = doorStats.totalOpenMin || 0;
               var closedMin = doorStats.totalClosedMin || 0;
               if (state.doorTimeChart) state.doorTimeChart.destroy();
@@ -210,26 +236,28 @@
             }
           } else {
             if (doorSummaryEl) doorSummaryEl.style.display = 'none';
-            if (doorTimeWrap) doorTimeWrap.style.display = 'none';
-            if (doorGanttWrap) doorGanttWrap.style.display = 'none';
+            if (doorChartsRow) doorChartsRow.style.display = 'none';
           }
         } else {
           if (doorSummaryEl) doorSummaryEl.style.display = 'none';
-          if (doorTimeWrap) doorTimeWrap.style.display = 'none';
-          if (doorGanttWrap) doorGanttWrap.style.display = 'none';
+          if (doorChartsRow) doorChartsRow.style.display = 'none';
           if (state.doorTimeChart) { state.doorTimeChart.destroy(); state.doorTimeChart = null; }
         }
         var anomEl = document.getElementById('device-anomalies');
         if (anomEl) {
-          var html = '<p class="meta"><strong>Anomalies</strong> (rule-based: temp dip, soil drop, distance jump, door toggle, battery drop):</p>';
-          if (anomalyList.length) {
-            anomalyList.forEach(function (a) {
-              html += '<div class="anomaly-item"><strong>' + (a.time || '').slice(0, 19) + '</strong> ' + (a.description || a.type || '') + '</div>';
-            });
+          if (state.currentView === 'doors') {
+            anomEl.innerHTML = '';
           } else {
-            html += '<p class="meta empty-state">None detected in this range.</p>';
+            var html = '<p class="meta"><strong>Anomalies</strong> (rule-based: temp dip, soil drop, distance jump, door toggle, battery drop):</p>';
+            if (anomalyList.length) {
+              anomalyList.forEach(function (a) {
+                html += '<div class="anomaly-item"><strong>' + (a.time || '').slice(0, 19) + '</strong> ' + (a.description || a.type || '') + '</div>';
+              });
+            } else {
+              html += '<p class="meta empty-state">None detected in this range.</p>';
+            }
+            anomEl.innerHTML = html;
           }
-          anomEl.innerHTML = html;
         }
         var lastEl = document.getElementById('last-updated');
         if (document.getElementById('auto-refresh') && document.getElementById('auto-refresh').checked && lastEl) {
@@ -602,21 +630,29 @@
         });
       });
     }).then(function () {
+      /* dashboard map created after content is shown, in next .then() */
+    }).then(function () {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (contentEl) contentEl.style.display = 'flex';
       var withLoc = (window.LoRaWAN.dashboardGatewaysList || []).filter(function (g) { return g.lat != null && g.lon != null; });
       if (globeEl && withLoc.length && window.L) {
         try {
           if (window.LoRaWAN.dashboardGlobe && window.LoRaWAN.dashboardGlobe.remove) window.LoRaWAN.dashboardGlobe.remove();
-          var map = window.L.map(globeEl).setView([20, 0], 2);
-          window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
-          withLoc.forEach(function (g) {
-            window.L.marker([g.lat, g.lon]).addTo(map).bindPopup('<b>' + (g.gateway_id || '') + '</b><br/>' + (g.event_count || 0) + ' events');
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              if (!globeEl.offsetParent) return;
+              var map = window.L.map(globeEl).setView([20, 0], 2);
+              window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap', maxZoom: 19 }).addTo(map);
+              map.invalidateSize();
+              withLoc.forEach(function (g) {
+                window.L.marker([g.lat, g.lon]).addTo(map).bindPopup('<b>' + (g.gateway_id || '') + '</b><br/>' + (g.event_count || 0) + ' events');
+              });
+              window.LoRaWAN.dashboardGlobe = map;
+              setTimeout(function () { if (map && map.invalidateSize) map.invalidateSize(); }, 100);
+            });
           });
-          window.LoRaWAN.dashboardGlobe = map;
         } catch (err) {}
       }
-    }).then(function () {
-      if (loadingEl) loadingEl.style.display = 'none';
-      if (contentEl) contentEl.style.display = 'flex';
     }).catch(function (e) {
       showApiUnavailable(apiErrMsg(e));
       if (loadingEl) loadingEl.style.display = 'none';
@@ -667,6 +703,10 @@
       var bannerEl = document.getElementById('site-banner');
       if (bannerEl) bannerEl.style.display = 'none';
       if (siteMeta) siteMeta.textContent = '';
+      var config = window.LoRaWAN.config;
+      var fallback = (config && config.GATEWAY_BANNER_FALLBACK) ? config.GATEWAY_BANNER_FALLBACK : 'site-great-slave-lake-2.png';
+      var backdropBg = document.getElementById('view-backdrop-bg');
+      if (backdropBg) backdropBg.style.backgroundImage = 'url(images/' + fallback + ')';
       return Promise.resolve();
     }
     var bannerEl = document.getElementById('site-banner');
@@ -703,6 +743,8 @@
         }
       };
       bannerImg.src = firstSrc;
+      var backdropBg = document.getElementById('view-backdrop-bg');
+      if (backdropBg) backdropBg.style.backgroundImage = 'url(' + firstSrc + ')';
     }
     api.getGateways().then(function (gateways) {
       var gw = gateways.find(function (g) { return g.gateway_id === gateway; });
@@ -934,8 +976,27 @@
       (state.mapMarkers || []).forEach(function (m) { m.remove(); });
       state.mapMarkers = [];
       var center = withLoc[0];
-      state.mapInstance = L.map(container).setView([center.lat, center.lon], 3);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(state.mapInstance);
+      var gatewaysForMap = withLoc;
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          if (!container || !container.offsetParent) return;
+          state.mapInstance = L.map(container).setView([center.lat, center.lon], 3);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(state.mapInstance);
+          state.mapInstance.invalidateSize();
+          gatewaysForMap.forEach(function (g) {
+            var m = L.marker([g.lat, g.lon]).addTo(state.mapInstance);
+            m.bindPopup('<b>' + g.gateway_id + '</b><br/>' + (g.event_count || 0) + ' events');
+            m.on('click', function () {
+              dom.gatewaySelect.value = g.gateway_id;
+              dom.gatewayCorrelationSelect.value = g.gateway_id;
+              window.LoRaWAN.setActiveView('site');
+              window.LoRaWAN.url.pushUrlState();
+            });
+            state.mapMarkers.push(m);
+          });
+          setTimeout(function () { if (state.mapInstance) state.mapInstance.invalidateSize(); }, 100);
+        });
+      });
       dom.gatewaySelect.innerHTML = '';
       dom.gatewayCorrelationSelect.innerHTML = '';
       gateways.forEach(function (gw) {
@@ -944,17 +1005,6 @@
         opt.textContent = gw.gateway_id + ' (' + (gw.event_count || 0) + ' events' + (gw.lat != null ? ', ' + gw.lat.toFixed(4) + '°' : '') + ')';
         dom.gatewaySelect.appendChild(opt);
         dom.gatewayCorrelationSelect.appendChild(opt.cloneNode(true));
-      });
-      withLoc.forEach(function (g) {
-        var m = L.marker([g.lat, g.lon]).addTo(state.mapInstance);
-        m.bindPopup('<b>' + g.gateway_id + '</b><br/>' + (g.event_count || 0) + ' events');
-        m.on('click', function () {
-          dom.gatewaySelect.value = g.gateway_id;
-          dom.gatewayCorrelationSelect.value = g.gateway_id;
-          window.LoRaWAN.setActiveView('site');
-          window.LoRaWAN.url.pushUrlState();
-        });
-        state.mapMarkers.push(m);
       });
       return api.getDevicesWithHealth();
     }).then(function (devices) {
@@ -974,9 +1024,18 @@
     });
   }
 
+  function setViewBackdrop(show, imageUrl) {
+    var backdrop = document.getElementById('view-backdrop');
+    var bg = document.getElementById('view-backdrop-bg');
+    if (!backdrop || !bg) return;
+    backdrop.style.display = show ? 'block' : 'none';
+    if (imageUrl) bg.style.backgroundImage = 'url(' + imageUrl + ')';
+  }
+
   function setCardsVisibility() {
     var dom = window.LoRaWAN.dom;
     var state = window.LoRaWAN.state;
+    var config = window.LoRaWAN.config;
     if (!dom || !state) return;
     var isDeviceView = ['level', 'soil', 'climate', 'doors', 'sw3l'].indexOf(state.currentView) !== -1;
     dom.cardDashboard.style.display = state.currentView === 'dashboard' ? 'block' : 'none';
@@ -985,11 +1044,17 @@
     dom.cardMap.style.display = state.currentView === 'map' ? 'block' : 'none';
     dom.cardSite.style.display = state.currentView === 'site' ? 'block' : 'none';
     dom.cardCorrelation.style.display = state.currentView === 'correlation' ? 'block' : 'none';
-    if (state.currentView === 'dashboard') loadDashboard();
-    else {
+    if (state.currentView === 'dashboard') {
+      var fallback = (config && config.GATEWAY_BANNER_FALLBACK) ? config.GATEWAY_BANNER_FALLBACK : 'site-great-slave-lake-2.png';
+      setViewBackdrop(true, 'images/' + fallback);
+      loadDashboard();
+    } else if (state.currentView === 'site') {
+      setViewBackdrop(true, (config && config.GATEWAY_BANNER_FALLBACK) ? 'images/' + config.GATEWAY_BANNER_FALLBACK : null);
+      loadGateways();
+    } else {
+      setViewBackdrop(false);
       stopDashboardDeviceCycle();
-      if (state.currentView === 'site') loadGateways();
-      else if (state.currentView === 'correlation') loadGateways();
+      if (state.currentView === 'correlation') loadGateways();
       else if (state.currentView === 'health') loadHealth();
       else if (state.currentView === 'map') loadMap();
     }
